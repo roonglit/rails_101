@@ -3,9 +3,9 @@
 ## Table of Contents
 - [Instroduction](#introduction)
 - [Getting to know Rails with Active Record](#getting-to-know-rails---active-record)
+- [Associations](#associations)
 
 ## Introduction
-
 To create a new Rails application, use the following command:
 ```
 $ rails new rails_101
@@ -178,3 +178,198 @@ __Finding a Deleted User__
   * __SQL Query__: A `SELECT` SQL query is executed to find the user with `id` 1.
 * __Error__: Since the user with `id` 1 has been deleted, Active Record raises an `ActiveRecord::RecordNotFound` exception.
   * __Exception Message__: The error message indicates that the user with `id` 1 could not be found.
+
+__Finding a User by Parameter__
+```ruby
+> user.create name: 'Lancelot', email: 'lancelot@camelot.com', password: 'lancelot_secret'
+> user = User.find_by name: 'Lancelot'
+> user.name
+=> "Lancelot"
+```
+* __User.find_by__: This command finds the first user in the database with the specified attribute (name: 'Lancelot')
+
+__Finding Users by Parameter__
+```ruby
+> users = User.where name: 'Arthur'
+> users[0].name
+=> "Arthur"
+```
+* __User.where__: This command retrieves all users from the database with the specified attribute (name: 'Arthur')
+  * __ActiveRelation__: The `where` method returns and `ActiveRelation` object, which is a lazy-loaded collection of records that can be further queried or manipulated. 
+
+__Chaining Active Record Commands__ 
+```ruby
+> User.order(created_at: :desc)
+> User.where(name: 'Arthur').order(created_at: :desc)
+  User Load (0.3ms)  SELECT "users".* FROM "users" WHERE "users"."name" = ? /* loading for pp */ ORDER BY "users"."created_at" DESC LIMIT ?  [["name", "Arthur"], ["LIMIT", 11]]
+```
+* __User.where(name: 'Arthur').order(created_at: :desc)__: This command chains two ActiveRecord methods:
+
+  1. __User.where(name: 'Arthur')__: Filters the users to only those with the name 'Arthur'.
+  2. __order(created_at: :desc)__: Orders the filtered users by the created_at attribute in descending order.
+    * __ActiveRelation__: Each method in the chain returns an ActiveRelation object, enabling the chaining of multiple query methods.
+    * __SQL Query__: The generated SQL query is SELECT "users".* FROM "users" WHERE "users"."name" = 'Arthur' ORDER BY "users"."created_at" DESC.
+    * __Return Value__: The method returns an array of User objects with the name 'Arthur', ordered by their creation date, with the most recently created users first.
+
+## Associations
+An association is a connection between two Active Record models. It makes common operations simpler and easier. 
+
+```
+$ ruby g model Room name description:text
+```
+
+```ruby
+class CreateRooms < ActiveRecord::Migration[7.2]
+  def change
+    create_table :rooms do |t|
+      t.string :name
+      t.text :description
+
+      t.timestamps
+    end
+  end
+end
+```
+
+The __`belongs_to`__ Association
+```
+$ ruby g model Message user:belongs_to room:belongs_to content:text
+```
+
+This command will generate a migration for creating messages table. 
+```ruby
+class CreateMessages < ActiveRecord::Migration[7.2]
+  def change
+    create_table :messages do |t|
+      t.belongs_to :user, null: false, foreign_key: true
+      t.belongs_to :room, null: false, foreign_key: true
+      t.text :content
+
+      t.timestamps
+    end
+  end
+end
+
+```
+
+also, a Message model is generated with belongs_to keyword.
+```ruby
+class Message < ApplicationRecord
+  belongs_to :user
+  belongs_to :room
+end
+```
+
+```
+$ rails db:migrate
+```
+
+```ruby
+$ rails c
+> Message.column_names
+=> ["id", "user_id", "room_id", "content", "created_at", "updated_at"]
+```
+
+```ruby
+> user = User.find_by name: "Arthur"
+> room = Room.create(name: "Campfire", description: "A safe place to share ideas")
+> message = Message.create(user: user, room: room, content: "Hello World!")
+> message.room_id
+=> 1
+> message.user
+#<User:0x000000012a4371c0
+ id: 3,
+ name: "Arthur",
+ email: "[FILTERED]",
+ password: "[FILTERED]",
+ created_at: "2024-09-23 02:27:44.739964000 +0000",
+ updated_at: "2024-09-23 02:27:44.739964000 +0000">
+```
+
+The __`has_many`__ association
+
+
+```ruby
+class User < ApplicationRecord
+  has_many :messages
+end
+```
+
+```ruby
+class Room < ApplicationRecord
+  has_many :messages
+end
+```
+
+* Association: The `has_many :messages` line establishes a one-to-many relationshiop between `Room` and `Message`. This means that a single user / single room can have multiple messages associated with it. 
+
+```ruby
+> user.messages
+[#<Message:0x000000012a430280
+  id: 1,
+  user_id: 3,
+  room_id: 1,
+  content: "Hello World!",
+  created_at: "2024-09-23 07:10:34.438750000 +0000",
+  updated_at: "2024-09-23 07:10:34.438750000 +0000">]
+```
+
+__The `has_many :through` Association__
+
+__Models Setup__
+
+__User Model__
+```ruby
+class User < ApplicationRecord
+  has_many :messages
+  has_many :rooms, through: :messages
+end
+```
+
+```ruby
+$ rails c
+> user = User.find_by name: 'Arthur'
+> user.rooms
+  Room Load (0.2ms)  SELECT "rooms".* FROM "rooms" INNER JOIN "messages" ON "rooms"."id" = "messages"."room_id" WHERE "messages"."user_id" = ? /* loading for pp */ LIMIT ?  [["user_id", 3], ["LIMIT", 11]]
+=> 
+[#<Room:0x000000012b5bc7d8
+  id: 1,
+  name: "Campfire",
+  description: "A safe place to share ideas",
+  created_at: "2024-09-23 07:02:16.883845000 +0000",
+  updated_at: "2024-09-23 07:02:16.883845000 +0000">]
+```
+
+`user.rooms`, this command retrieves all rooms associated with the user 'Arthur'.
+
+__Association with a Custom Word__
+
+```ruby
+class User < ApplicationRecord
+  has_many :messages
+  has_many :in_rooms, through: :messages, source: :room
+end
+```
+
+* The `has_many :in_rooms` line creates a custom association name `in_rooms` instead of the default `rooms`.
+* `through: :messages`: This specifies that the association should go through the `messages` table. Essentially, it means that to find the rooms a user is in, you should look at the messages they have sent.
+* `source: :room`: This specifies the source of the association. In this case, it tells ActiveRecord that the `in_rooms` association should use the `room` association from the `Message` model
+
+
+```
+$ rails c
+> user = User.find_by name: 'Arthur'
+> user.in_rooms
+=> 
+[#<Room:0x000000011e13c148
+  id: 1,
+  name: "Campfire",
+  description: "A safe place to share ideas",
+  created_at: "2024-09-23 07:02:16.883845000 +0000",
+  updated_at: "2024-09-23 07:02:16.883845000 +0000">]
+```
+
+__Why Use Custom Association Names and source?__
+* Clarity: Custom association names can make your code more readable and expressive. For example, in_rooms clearly indicates that these are the rooms the user is participating in.
+* Avoiding Conflicts: If you already have an association named rooms for a different purpose, using a custom name like in_rooms helps avoid conflicts.
+* Flexibility: The source option allows you to specify the actual association to use, providing more flexibility in how you define relationships between models.
