@@ -4,6 +4,7 @@
 - [Instroduction](#introduction)
 - [Getting to know Rails with Active Record](#getting-to-know-rails---active-record)
 - [Associations](#associations)
+- [Action View](#action-views)
 
 ## Introduction
 To create a new Rails application, use the following command:
@@ -356,7 +357,7 @@ end
 * `source: :room`: This specifies the source of the association. In this case, it tells ActiveRecord that the `in_rooms` association should use the `room` association from the `Message` model
 
 
-```
+```ruby
 $ rails c
 > user = User.find_by name: 'Arthur'
 > user.in_rooms
@@ -373,3 +374,139 @@ __Why Use Custom Association Names and source?__
 * Clarity: Custom association names can make your code more readable and expressive. For example, in_rooms clearly indicates that these are the rooms the user is participating in.
 * Avoiding Conflicts: If you already have an association named rooms for a different purpose, using a custom name like in_rooms helps avoid conflicts.
 * Flexibility: The source option allows you to specify the actual association to use, providing more flexibility in how you define relationships between models.
+
+## Enum
+
+```
+$ rails g migration add_visibility_to_rooms visibility:integer
+```
+
+```ruby
+class AddVisibilityToRooms < ActiveRecord::Migration[7.2]
+  def change
+    add_column :rooms, :visibility, :integer
+  end
+end
+```
+
+```ruby
+class Room < ApplicationRecord
+  has_many :messages
+
+  enum visibility: [:public_access, :private_access]
+end
+```
+
+```ruby
+$ rails c
+> room = Room.first
+> room.visibility
+=> nil
+> room.public_access?
+=> false
+> room.private_access?
+=> false
+> room.public_access!
+  TRANSACTION (0.1ms)  begin transaction
+  Room Update (1.5ms)  UPDATE "rooms" SET "updated_at" = ?, "visibility" = ? WHERE "rooms"."id" = ?  [["updated_at", "2024-09-27 10:12:17.092042"], ["visibility", 0], ["id", 1]]
+  TRANSACTION (0.3ms)  commit transaction
+=> true
+> room.visibility
+=> "public_access"
+> Room.visibilities[:public_access]
+=> 0
+> room.update visibility: Room.visibilities[:private_access]
+=> true
+```
+
+
+## Action View
+
+```
+$ rails g controller rooms index
+```
+
+```ruby
+class RoomsController < ApplicationController
+  def index
+  end
+end
+```
+
+```html
+<h1>Rooms#index</h1>
+<p>Find me in app/views/rooms/index.html.erb</p>
+```
+
+```ruby
+Rails.application.routes.draw do
+  get "rooms/index"
+  ...
+```
+
+```ruby
+class RoomsController < ApplicationController
+  def index
+    @rooms = Room.all
+  end
+end
+```
+
+```html
+<h1>Rooms</h1>
+<% @rooms.each do |room| %>
+  <p><%= room.name %></p>
+<% end %>
+```
+
+```ruby
+Rails.application.routes.draw do
+  get "rooms/index"
+  get "rooms/:id" => "rooms#show", as: :room
+  ...
+```
+
+```
+$ rails routes
+|    Prefix   | Verb  | URI Pattern  | Controller#Action  |
+|-------------|-------|--------------|--------------------|
+| rooms_index |  GET  | /rooms/index | rooms#index        |
+| room        |  GET  | /rooms/:id   | rooms#show         |
+
+```
+
+```ruby
+class RoomsController < ApplicationController
+  def index
+    @rooms = Room.all
+  end
+
+  def show
+    @room = Room.find(params[:id])
+  end
+end
+```
+
+app/views/rooms/show.html.erb
+```html
+<h1><%= @room.name %></h1>
+<p><%= @room.description %></p>
+<%= link_to 'Back', rooms_index_path %>
+```
+
+app/views/rooms/index.html.erb
+```html
+<h1>Rooms</h1>
+<% @rooms.each do |room| %>
+  <p><%= link_to room.name, room_path(room) %></p>
+<% end %>
+```
+
+```ruby
+Rails.application.routes.draw do
+  get "rooms/index"
+  get "rooms/:id" => "rooms#show", as: :room
+  get "rooms/:id/edit" => "rooms#edit", as: :edit_room
+  ...
+end
+```

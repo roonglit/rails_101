@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[7.2].define(version: 2024_09_23_070455) do
+ActiveRecord::Schema[7.2].define(version: 2024_09_27_100247) do
   create_table "messages", force: :cascade do |t|
     t.integer "user_id", null: false
     t.integer "room_id", null: false
@@ -26,6 +26,7 @@ ActiveRecord::Schema[7.2].define(version: 2024_09_23_070455) do
     t.text "description"
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.integer "visibility"
   end
 
   create_table "users", force: :cascade do |t|
