@@ -1,0 +1,7 @@
+<h1>Rooms</h1>
+<% @rooms.each do |room| %>
+  <p>
+    <%= link_to room.name, room_path(room) %>
+    <%= link_to 'Edit', edit_room_path(room) %>
+  </p>
+<% end %>
