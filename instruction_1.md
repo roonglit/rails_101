@@ -2,8 +2,8 @@
 ### 1. Create a New Rails Application
 Open your terminal and run the following command to create a new Rails application named `todo`:
 ```
-$ rails new todo
-$ cd todo
+$ rails new todo_app
+$ cd todo_app
 ```
 ### 2. Generate the Todo Model
 Generate a model named `Todo` with a `name` field
